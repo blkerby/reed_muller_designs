@@ -1,7 +1,10 @@
-use std::fmt;
 use std::ops::{Index, IndexMut};
 use std::mem;
 use std::collections::{HashSet, HashMap};
+use std::fs::File;
+use std::error::Error;
+use std::io::Write;
+use std::fmt;
 
 #[derive(Hash, Eq, PartialEq, Clone)]
 struct LowerTriangularMatrix {
@@ -47,7 +50,7 @@ impl fmt::Display for LowerTriangularMatrix {
                     write!(f, "0 ")?;
                 }
             }
-            for j in 0 .. self.dim - i {
+            for _ in 0 .. self.dim - i {
                 write!(f, "  ")?;
             }
             
@@ -115,7 +118,6 @@ fn canonical_matrix(dim: usize, rank: usize, kind: usize) -> LowerTriangularMatr
 
 struct CanonicalMatrix {
     mat: LowerTriangularMatrix,
-    dim: usize,
     rank: usize,
     kind: usize,
 }
@@ -125,14 +127,12 @@ fn all_canonical_matrices(dim: usize) -> Vec<CanonicalMatrix> {
     for rank in 0..(dim + 1) {
         out.push(CanonicalMatrix {
             mat: canonical_matrix(dim, rank, 0),
-            dim,
             rank,
             kind: 0
         });
         if rank % 2 == 0 && rank > 0 {
             out.push(CanonicalMatrix {
                 mat: canonical_matrix(dim, rank, 1),
-                dim,
                 rank,
                 kind: 1
             });
@@ -226,27 +226,51 @@ fn compute_intersection_numbers(mat: &LowerTriangularMatrix, orbit: &HashSet<Low
     counts_vec
 }
 
-fn main() {
-//     let mut mat = LowerTriangularMatrix {
-//         data: vec![false; 10],
-//         dim: 4
-//     };
-//     mat.data[9] = true;
-    // let mat1 = generator_cycle(&mat);
-    // let mat1 = generator_transvection(&mat);
-    let dim = 6;
-    let mut total = 0;
-    // println!("{:?}", create_full_space(4));
-    let canonical_matrices = all_canonical_matrices(dim);
+fn write_design(cm: &CanonicalMatrix) -> Result<(), Box<dyn Error>> {
+    let orbit = compute_orbit(cm.mat.clone());
+    let kind = if cm.rank % 2 == 0 { if cm.kind == 1 { "B" } else { "A" } } else { "" };
+    let filename = format!("output/design_l{}_r{}{}_w{}_s{}.json", 
+        2usize.pow(cm.mat.dim as u32), cm.rank, kind, compute_weight(&cm.mat), orbit.len());
+    println!("Writing {}", filename);
+    let mut file = File::create(filename)?;
+    writeln!(file, "[")?;
+    for (i, m) in orbit.iter().enumerate() {
+        let vec = evaluate_all(m);
+        write!(file, "[")?;
+        for (j, x) in vec.iter().enumerate() {
+            if *x {
+                write!(file, "1")?;
+            } else {
+                write!(file, "0")?;
+            }
+            if j != vec.len() - 1 {
+                write!(file, ",")?;
+            }
+        }
+        write!(file, "]")?;
+        if i != orbit.len() - 1 {
+            writeln!(file, ",")?;
+        }
+    }
+    writeln!(file, "\n]")?;
+    file.sync_all()?;
+    Ok(())
+}
 
-    for cm in canonical_matrices {
-        let set = compute_orbit(cm.mat.clone());
-        println!("rank {}, kind {}, weight {}, orbit size {}", cm.rank, cm.kind, compute_weight(&cm.mat), set.len());
-        println!("intersections: {:?}", compute_intersection_numbers(&cm.mat, &set));
-        total += set.len();
-    }   
-    println!("total: {}", total);
-    // for m in set {
-        // println!("{}", m);
-    // }
+fn main() {
+    // let dim = 8;
+    for dim in 2 ..= 8 {
+        let canonical_matrices = all_canonical_matrices(dim);
+
+        for cm in canonical_matrices {
+            if cm.rank == 0 {
+                continue;
+            }
+            write_design(&cm).unwrap();
+            // let set = compute_orbit(cm.mat.clone());
+            // println!("dim {}, rank {}, kind {}, weight {}, orbit size {}", dim, cm.rank, cm.kind, compute_weight(&cm.mat), set.len());
+            // println!("intersections: {:?}", compute_intersection_numbers(&cm.mat, &set));
+        }   
+    
+    }
 }
