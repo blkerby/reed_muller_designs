@@ -207,9 +207,6 @@ fn compute_intersection_numbers(mat: &LowerTriangularMatrix, orbit: &HashSet<Low
     let v1 = evaluate_all(mat);
     for m in orbit {
         let v2 = evaluate_all(m);
-        if v2 == v1 { 
-            continue; 
-        }
         let mut cnt = 0;
         for (x, y) in v1.iter().zip(&v2) {
             if *x && *y {
@@ -220,14 +217,13 @@ fn compute_intersection_numbers(mat: &LowerTriangularMatrix, orbit: &HashSet<Low
     }
 
     let mut counts_vec: Vec<usize> = Vec::new();
-    for i in 0 ..= v1.len() {
+    for i in 0 ..= compute_weight(&mat) {
         counts_vec.push(*counts.get(&i).unwrap_or(&0));
     }
     counts_vec
 }
 
-fn write_design(cm: &CanonicalMatrix) -> Result<(), Box<dyn Error>> {
-    let orbit = compute_orbit(cm.mat.clone());
+fn write_design(cm: &CanonicalMatrix, orbit: &HashSet<LowerTriangularMatrix>) -> Result<(), Box<dyn Error>> {
     let kind = if cm.rank % 2 == 0 { if cm.kind == 1 { "B" } else { "A" } } else { "" };
     let filename = format!("output/design_l{}_r{}{}_w{}_s{}.json", 
         2usize.pow(cm.mat.dim as u32), cm.rank, kind, compute_weight(&cm.mat), orbit.len());
@@ -258,7 +254,6 @@ fn write_design(cm: &CanonicalMatrix) -> Result<(), Box<dyn Error>> {
 }
 
 fn main() {
-    // let dim = 8;
     for dim in 2 ..= 8 {
         let canonical_matrices = all_canonical_matrices(dim);
 
@@ -266,10 +261,9 @@ fn main() {
             if cm.rank == 0 {
                 continue;
             }
-            write_design(&cm).unwrap();
-            // let set = compute_orbit(cm.mat.clone());
-            // println!("dim {}, rank {}, kind {}, weight {}, orbit size {}", dim, cm.rank, cm.kind, compute_weight(&cm.mat), set.len());
-            // println!("intersections: {:?}", compute_intersection_numbers(&cm.mat, &set));
+            let orbit = compute_orbit(cm.mat.clone());
+            write_design(&cm, &orbit).unwrap();
+            println!("intersection numbers: {:?}", compute_intersection_numbers(&cm.mat, &orbit));
         }   
     
     }
