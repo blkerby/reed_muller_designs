@@ -1,1 +1,1 @@
-Code to generate block designs related to Reed-Muller codes.
+Code to generate block designs related to quadratic Reed-Muller codes.
